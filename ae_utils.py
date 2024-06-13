@@ -110,13 +110,16 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
             decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
             # Encode the actual next state
-            encoded_next_state, _ = combined_model.autoencoder(next_states) if combined_model.forward_model is not None else (None, None)
+            if combined_model.forward_model is not None:
+                encoded_next_state, _ = combined_model.autoencoder(next_states)
+            else:
+                encoded_next_state = None
 
             # Compute losses
             reconstruction_loss = reconstruction_criterion(decoded_state, states)
-            prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else 0.0
-            inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else 0.0
-            reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else 0.0
+            prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else torch.tensor(0.0, device=device)
+            inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else torch.tensor(0.0, device=device)
+            reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else torch.tensor(0.0, device=device)
 
             # Combine losses
             loss = reconstruction_loss + prediction_loss + inverse_loss + reward_loss
@@ -132,9 +135,9 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
             epoch_train_reward_loss += reward_loss.item() * states.size(0) if combined_model.reward_model is not None else 0.0
 
         epoch_train_reconstruction_loss /= len(train_loader.dataset)
-        epoch_train_prediction_loss /= len(train_loader.dataset)
-        epoch_train_inverse_loss /= len(train_loader.dataset)
-        epoch_train_reward_loss /= len(train_loader.dataset)
+        epoch_train_prediction_loss /= len(train_loader.dataset) if combined_model.forward_model is not None else 1
+        epoch_train_inverse_loss /= len(train_loader.dataset) if combined_model.inverse_model is not None else 1
+        epoch_train_reward_loss /= len(train_loader.dataset) if combined_model.reward_model is not None else 1
         train_reconstruction_losses.append(epoch_train_reconstruction_loss)
         train_prediction_losses.append(epoch_train_prediction_loss)
         train_inverse_losses.append(epoch_train_inverse_loss)
@@ -156,12 +159,15 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
                 decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
                 # Encode the actual next state
-                encoded_next_state, _ = combined_model.autoencoder(next_states) if combined_model.forward_model is not None else (None, None)
+                if combined_model.forward_model is not None:
+                    encoded_next_state, _ = combined_model.autoencoder(next_states)
+                else:
+                    encoded_next_state = None
 
                 reconstruction_loss = reconstruction_criterion(decoded_state, states)
-                prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else 0.0
-                inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else 0.0
-                reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else 0.0
+                prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else torch.tensor(0.0, device=device)
+                inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else torch.tensor(0.0, device=device)
+                reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else torch.tensor(0.0, device=device)
 
                 epoch_val_reconstruction_loss += reconstruction_loss.item() * states.size(0)
                 epoch_val_prediction_loss += prediction_loss.item() * states.size(0) if combined_model.forward_model is not None else 0.0
@@ -169,9 +175,9 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
                 epoch_val_reward_loss += reward_loss.item() * states.size(0) if combined_model.reward_model is not None else 0.0
 
         epoch_val_reconstruction_loss /= len(val_loader.dataset)
-        epoch_val_prediction_loss /= len(val_loader.dataset)
-        epoch_val_inverse_loss /= len(val_loader.dataset)
-        epoch_val_reward_loss /= len(val_loader.dataset)
+        epoch_val_prediction_loss /= len(val_loader.dataset) if combined_model.forward_model is not None else 1
+        epoch_val_inverse_loss /= len(val_loader.dataset) if combined_model.inverse_model is not None else 1
+        epoch_val_reward_loss /= len(val_loader.dataset) if combined_model.reward_model is not None else 1
         val_reconstruction_losses.append(epoch_val_reconstruction_loss)
         val_prediction_losses.append(epoch_val_prediction_loss)
         val_inverse_losses.append(epoch_val_inverse_loss)
@@ -195,7 +201,10 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
     plt.title('Training and Validation Losses')
     plt.legend()
 
-    plt.savefig(os.path.join(plot_dir, f'CombinedModel_{combined_model.type_ae}_training_validation_losses_{state_dim}.png'), dpi=300, bbox_inches='tight')
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+
+    plt.savefig(os.path.join(plot_dir, f'CombinedModel_{combined_model.type_ae}_train_val_{state_dim}.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
     # Evaluation on the test set
@@ -211,12 +220,15 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
             decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
             # Encode the actual next state
-            encoded_next_state, _ = combined_model.autoencoder(next_states) if combined_model.forward_model is not None else (None, None)
+            if combined_model.forward_model is not None:
+                encoded_next_state, _ = combined_model.autoencoder(next_states)
+            else:
+                encoded_next_state = None
 
             reconstruction_loss = reconstruction_criterion(decoded_state, states)
-            prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else 0.0
-            inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else 0.0
-            reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else 0.0
+            prediction_loss = prediction_criterion(predicted_encoded_next_state, encoded_next_state) if combined_model.forward_model is not None else torch.tensor(0.0, device=device)
+            inverse_loss = inverse_criterion(predicted_action, actions) if combined_model.inverse_model is not None else torch.tensor(0.0, device=device)
+            reward_loss = reward_criterion(predicted_reward, rewards) if combined_model.reward_model is not None else torch.tensor(0.0, device=device)
 
             total_reconstruction_loss += reconstruction_loss.item() * states.size(0)
             total_prediction_loss += prediction_loss.item() * states.size(0) if combined_model.forward_model is not None else 0.0
@@ -224,15 +236,17 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
             total_reward_loss += reward_loss.item() * states.size(0) if combined_model.reward_model is not None else 0.0
 
         total_reconstruction_loss /= len(test_loader.dataset)
-        total_prediction_loss /= len(test_loader.dataset)
-        total_inverse_loss /= len(test_loader.dataset)
-        total_reward_loss /= len(test_loader.dataset)
+        total_prediction_loss /= len(test_loader.dataset) if combined_model.forward_model is not None else 1
+        total_inverse_loss /= len(test_loader.dataset) if combined_model.inverse_model is not None else 1
+        total_reward_loss /= len(test_loader.dataset) if combined_model.reward_model is not None else 1
         print(f'Test Reconstruction Loss: {total_reconstruction_loss:.4f}')
         print(f'Test Prediction Loss: {total_prediction_loss:.4f}')
         print(f'Test Inverse Loss: {total_inverse_loss:.4f}')
         print(f'Test Reward Loss: {total_reward_loss:.4f}')
 
     # Save the models
-    save_dir = os.path.join(weights_dir, f'{type_ae}/state_dim_{state_dim}')
+    if not os.path.exists(weights_dir):
+        os.makedirs(weights_dir)
+    save_dir = os.path.join(weights_dir, f'{combined_model.type_ae}/state_dim_{state_dim}')
     combined_model.save(save_dir)
     combined_model.save(save_dir, save_whole_model=False)
