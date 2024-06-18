@@ -264,7 +264,36 @@ class CombinedModel(nn.Module):
         if self.type_ae == '':
             self.type_ae = 'base'
 
-    def forward(self, state, action):
+    # def forward(self, state, action):
+    #     # Encode the state
+    #     encoded_state, decoded_state = self.autoencoder(state)
+        
+    #     if self.forward_model is not None:
+    #         # Predict the next encoded state
+    #         predicted_encoded_next_state = self.forward_model.forwardModel(encoded_state, action)
+    #         # Decode the predicted encoded state
+    #         decoded_predicted_next_state = self.autoencoder.decoder(predicted_encoded_next_state)
+    #     else:
+    #         predicted_encoded_next_state = None
+    #         decoded_predicted_next_state = None
+        
+    #     if self.inverse_model is not None:
+    #         # Predict the action from the inverse model
+    #         if predicted_encoded_next_state is not None:
+    #             predicted_action = self.inverse_model.inverseModel(encoded_state, predicted_encoded_next_state)
+    #         else:
+    #             predicted_action = self.inverse_model.inverseModel(encoded_state, encoded_state)
+    #     else:
+    #         predicted_action = None
+        
+    #     if self.reward_model is not None and predicted_encoded_next_state is not None:
+    #         predicted_reward = self.reward_model.rewardModel(encoded_state, predicted_encoded_next_state)
+    #     else:
+    #         predicted_reward = None
+        
+    #     return decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward
+
+    def forward(self, state, action, next_state=None):
         # Encode the state
         encoded_state, decoded_state = self.autoencoder(state)
         
@@ -276,21 +305,36 @@ class CombinedModel(nn.Module):
         else:
             predicted_encoded_next_state = None
             decoded_predicted_next_state = None
-        
+
         if self.inverse_model is not None:
-            # Predict the action from the inverse model
-            if predicted_encoded_next_state is not None:
-                predicted_action = self.inverse_model.inverseModel(encoded_state, predicted_encoded_next_state)
+            if next_state is not None:
+                # Encode the next state
+                encoded_next_state, _ = self.autoencoder(next_state)
             else:
-                predicted_action = self.inverse_model.inverseModel(encoded_state, encoded_state)
+                encoded_next_state = predicted_encoded_next_state
+        
+            # Predict the action from the inverse model
+            if encoded_next_state is not None:
+                predicted_action = self.inverse_model.inverseModel(encoded_state, encoded_next_state)
+            else:
+                predicted_action = None
         else:
             predicted_action = None
-        
-        if self.reward_model is not None and predicted_encoded_next_state is not None:
-            predicted_reward = self.reward_model.rewardModel(encoded_state, predicted_encoded_next_state)
+
+        if self.reward_model is not None:
+            if next_state is not None:
+                # Encode the next state
+                encoded_next_state, _ = self.autoencoder(next_state)
+            else:
+                encoded_next_state = predicted_encoded_next_state
+
+            if encoded_next_state is not None:
+                predicted_reward = self.reward_model.rewardModel(encoded_state, encoded_next_state)
+            else:
+                predicted_reward = None
         else:
             predicted_reward = None
-        
+
         return decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward
 
     def save(self, save_dir, save_whole_model=True):

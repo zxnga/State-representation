@@ -79,9 +79,9 @@ def prepare_dataloaders(train_states, val_states, test_states, train_actions,
     
     return train_loader, val_loader, test_loader
 
-def train_combined_model(combined_model, state_dim, train_loader, val_loader, test_loader, 
+def train_combined_model_offline(combined_model, state_dim, train_loader, val_loader, test_loader, 
                          num_epochs, reconstruction_criterion, prediction_criterion, 
-                         inverse_criterion, reward_criterion, optimizer, plot_dir, weights_dir):
+                         inverse_criterion, reward_criterion, optimizer, use_next_states, plot_dir, weights_dir):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Lists to store the losses
@@ -106,7 +106,10 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
             states, actions, next_states, rewards = states.to(device), actions.to(device), next_states.to(device), rewards.to(device)
 
             # Forward pass
-            outputs = combined_model(states, actions)
+            if combined_model.forward_model is None:
+                outputs = combined_model(states, actions, next_states)
+            else:
+                outputs = combined_model(states, actions)
             decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
             # Encode the actual next state
@@ -155,7 +158,10 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
         with torch.no_grad():
             for states, actions, next_states, rewards in val_loader:
                 states, actions, next_states, rewards = states.to(device), actions.to(device), next_states.to(device), rewards.to(device)
-                outputs = combined_model(states, actions)
+                if combined_model.forward_model is None:
+                    outputs = combined_model(states, actions, next_states)
+                else:
+                    outputs = combined_model(states, actions)
                 decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
                 # Encode the actual next state
@@ -216,7 +222,10 @@ def train_combined_model(combined_model, state_dim, train_loader, val_loader, te
         total_reward_loss = 0.0
         for states, actions, next_states, rewards in test_loader:
             states, actions, next_states, rewards = states.to(device), actions.to(device), next_states.to(device), rewards.to(device)
-            outputs = combined_model(states, actions)
+            if combined_model.forward_model is None:
+                    outputs = combined_model(states, actions, next_states)
+            else:
+                outputs = combined_model(states, actions)
             decoded_state, decoded_predicted_next_state, encoded_state, predicted_encoded_next_state, predicted_action, predicted_reward = outputs
 
             # Encode the actual next state
