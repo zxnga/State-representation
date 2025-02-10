@@ -297,6 +297,7 @@ class CombinedModel(nn.Module):
         # Encode the state
         encoded_state, decoded_state = self.autoencoder(state)
         
+        # FORWARD
         if self.forward_model is not None:
             # Predict the next encoded state
             predicted_encoded_next_state = self.forward_model.forwardModel(encoded_state, action)
@@ -306,6 +307,7 @@ class CombinedModel(nn.Module):
             predicted_encoded_next_state = None
             decoded_predicted_next_state = None
 
+        # INVERSE
         if self.inverse_model is not None:
             if next_state is not None:
                 # Encode the next state
@@ -321,6 +323,7 @@ class CombinedModel(nn.Module):
         else:
             predicted_action = None
 
+        # REWARD
         if self.reward_model is not None:
             if next_state is not None:
                 # Encode the next state
